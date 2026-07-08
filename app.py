@@ -155,31 +155,6 @@ def mesh_to_response(filename, mesh):
     }
 
 
-EXAMPLES_FOLDER = "examples"
-os.makedirs(EXAMPLES_FOLDER, exist_ok=True)
-
-
-def ensure_example_files():
-    """Create CUBE.obj, CYLINDER.obj, TEAPOT.obj if they don't already exist."""
-    cube_path = os.path.join(EXAMPLES_FOLDER, "CUBE.obj")
-    cylinder_path = os.path.join(EXAMPLES_FOLDER, "CYLINDER.obj")
-    teapot_path = os.path.join(EXAMPLES_FOLDER, "TEAPOT.obj")
-
-    if not os.path.exists(cube_path):
-        trimesh.creation.box(extents=[20, 20, 20]).export(cube_path)
-        logger.info("Generated example: %s", cube_path)
-
-    if not os.path.exists(cylinder_path):
-        trimesh.creation.cylinder(radius=10, height=30, sections=32).export(cylinder_path)
-        logger.info("Generated example: %s", cylinder_path)
-
-    if not os.path.exists(teapot_path):
-        # A torus knot stands in for a "complex organic shape" like a teapot,
-        # since trimesh has no built-in teapot primitive.
-        trimesh.creation.torus(major_radius=12, minor_radius=4.5).export(teapot_path)
-        logger.info("Generated example: %s", teapot_path)
-
-
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -203,25 +178,6 @@ def upload_file():
 
     try:
         logger.info("Reading mesh file: %s", filename)
-        mesh = load_mesh(filepath)
-        response = mesh_to_response(filename, mesh)
-        logger.info("Computed OBB for %s -> volume=%.2f", filename, response["obb"]["volume"])
-        return jsonify(response)
-    except Exception as exc:
-        logger.exception("Failed to process %s", filename)
-        return jsonify({"error": f"Error processing file: {exc}"}), 500
-
-
-@app.route("/api/example/<filename>")
-def load_example(filename):
-    ensure_example_files()
-    filepath = os.path.join(EXAMPLES_FOLDER, filename)
-
-    if not os.path.exists(filepath):
-        return jsonify({"error": f"Example file not found: {filename}"}), 404
-
-    try:
-        logger.info("Reading example file: %s", filename)
         mesh = load_mesh(filepath)
         response = mesh_to_response(filename, mesh)
         logger.info("Computed OBB for %s -> volume=%.2f", filename, response["obb"]["volume"])

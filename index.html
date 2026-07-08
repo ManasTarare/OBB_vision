@@ -62,31 +62,12 @@
   .upload-zone .hint { font-size: 0.75rem; color: #5a5f6e; margin-top: 4px; }
   input[type=file] { display: none; }
 
-  .examples {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
   .examples-label {
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.6px;
     color: #5a5f6e;
   }
-  .ex-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    background: rgba(0, 212, 255, 0.06);
-    border: 1px solid rgba(0, 212, 255, 0.15);
-    border-radius: 7px;
-    color: #cfe9ff;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: 0.15s;
-  }
-  .ex-btn:hover { background: rgba(0, 212, 255, 0.14); border-color: rgba(0,212,255,0.4); }
 
   .log {
     flex: 1;
@@ -221,13 +202,6 @@
       <input type="file" id="fileInput" accept=".obj,.ply,.stl">
     </div>
 
-    <div class="examples">
-      <div class="examples-label">Sample Objects</div>
-      <div class="ex-btn" data-file="CUBE.obj">🧊 Cube</div>
-      <div class="ex-btn" data-file="CYLINDER.obj">🥫 Cylinder</div>
-      <div class="ex-btn" data-file="TEAPOT.obj">🫖 Teapot</div>
-    </div>
-
     <div class="metrics" id="metrics" style="display:none;">
       <div class="examples-label">OBB Measurements</div>
       <div class="metric-row"><span class="label">Volume</span><span class="value" id="mVolume">—</span></div>
@@ -287,10 +261,6 @@
     processResponse(fetch('/api/upload', { method: 'POST', body: formData }), file.name);
   }
 
-  function loadExample(filename) {
-    processResponse(fetch(`/api/example/${filename}`), filename);
-  }
-
   const uploadZone = document.getElementById('uploadZone');
   const fileInput = document.getElementById('fileInput');
   uploadZone.addEventListener('click', () => fileInput.click());
@@ -304,10 +274,6 @@
   fileInput.addEventListener('change', e => {
     if (e.target.files.length) uploadFile(e.target.files[0]);
   });
-  document.querySelectorAll('.ex-btn').forEach(btn => {
-    btn.addEventListener('click', () => loadExample(btn.dataset.file));
-  });
-
   // ---------- Minimal vanilla orbit controls (no external dependency) ----------
   function createOrbitControls(camera, domElement, target) {
     const state = { dragging: false, panning: false, lastX: 0, lastY: 0 };
