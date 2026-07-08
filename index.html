@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBB Calculator — 3D Object Measurement</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0b0f1a;
+    color: #e6e9f0;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    height: 100vh;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    background: #10141f;
+    border-right: 1px solid rgba(0, 212, 255, 0.12);
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+
+  .brand {
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .brand span { color: #00d4ff; }
+  .brand-sub {
+    font-size: 0.78rem;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .upload-zone {
+    border: 1.5px dashed rgba(0, 212, 255, 0.35);
+    border-radius: 10px;
+    padding: 28px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: rgba(0, 212, 255, 0.03);
+  }
+  .upload-zone:hover, .upload-zone.dragging {
+    border-color: #00d4ff;
+    background: rgba(0, 212, 255, 0.08);
+  }
+  .upload-zone .icon { font-size: 1.8rem; margin-bottom: 6px; }
+  .upload-zone .txt { font-size: 0.85rem; color: #b8bcc8; }
+  .upload-zone .hint { font-size: 0.75rem; color: #5a5f6e; margin-top: 4px; }
+  input[type=file] { display: none; }
+
+  .examples {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .examples-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #5a5f6e;
+  }
+  .ex-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: rgba(0, 212, 255, 0.06);
+    border: 1px solid rgba(0, 212, 255, 0.15);
+    border-radius: 7px;
+    color: #cfe9ff;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .ex-btn:hover { background: rgba(0, 212, 255, 0.14); border-color: rgba(0,212,255,0.4); }
+
+  .log {
+    flex: 1;
+    background: #0a0d16;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 0.72rem;
+    color: #7ee787;
+    overflow-y: auto;
+    min-height: 120px;
+    line-height: 1.5;
+  }
+  .log .line { margin-bottom: 2px; }
+  .log .err { color: #ff6b6b; }
+  .log .info { color: #6bb6ff; }
+
+  .metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .metric-row .label { font-size: 0.78rem; color: #8b93a7; }
+  .metric-row .value { font-size: 0.95rem; color: #00d4ff; font-variant-numeric: tabular-nums; }
+
+  .badge {
+    display: inline-block;
+    background: rgba(0, 212, 255, 0.12);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    color: #00d4ff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    text-align: center;
+  }
+
+  /* ---------- Viewer ---------- */
+  .viewer-wrap {
+    position: relative;
+    background: radial-gradient(circle at 50% 40%, #131826 0%, #0b0f1a 70%);
+  }
+  #viewer { width: 100%; height: 100%; display: block; }
+
+  .empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: #454b5c;
+    pointer-events: none;
+  }
+  .empty .icon { font-size: 2.4rem; opacity: 0.5; }
+  .empty .txt { font-size: 0.9rem; }
+
+  .legend {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(16, 20, 31, 0.85);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.78rem;
+    backdrop-filter: blur(6px);
+    display: none;
+  }
+  .legend.show { display: block; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .legend-item:last-child { margin-bottom: 0; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+  .file-tag {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: rgba(16, 20, 31, 0.85);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    color: #cfe9ff;
+    backdrop-filter: blur(6px);
+    display: none;
+  }
+  .file-tag.show { display: block; }
+
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(11,15,26,0.6);
+    backdrop-filter: blur(2px);
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner {
+    width: 34px; height: 34px;
+    border: 3px solid rgba(0,212,255,0.2);
+    border-top-color: #00d4ff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div>
+      <div class="brand">OBB<span>Vision</span></div>
+      <div class="brand-sub">Oriented Bounding Box Calculator</div>
+    </div>
+
+    <div class="upload-zone" id="uploadZone">
+      <div class="icon">📦</div>
+      <div class="txt">Drop a .obj / .ply / .stl file</div>
+      <div class="hint">or click to browse</div>
+      <input type="file" id="fileInput" accept=".obj,.ply,.stl">
+    </div>
+
+    <div class="examples">
+      <div class="examples-label">Sample Objects</div>
+      <div class="ex-btn" data-file="CUBE.obj">🧊 Cube</div>
+      <div class="ex-btn" data-file="CYLINDER.obj">🥫 Cylinder</div>
+      <div class="ex-btn" data-file="TEAPOT.obj">🫖 Teapot</div>
+    </div>
+
+    <div class="metrics" id="metrics" style="display:none;">
+      <div class="examples-label">OBB Measurements</div>
+      <div class="metric-row"><span class="label">Volume</span><span class="value" id="mVolume">—</span></div>
+      <div class="metric-row"><span class="label">Length (L)</span><span class="value" id="mLength">—</span></div>
+      <div class="metric-row"><span class="label">Width (W)</span><span class="value" id="mWidth">—</span></div>
+      <div class="metric-row"><span class="label">Height (H)</span><span class="value" id="mHeight">—</span></div>
+      <div class="metric-row"><span class="label">Vertices</span><span class="value" id="mVerts">—</span></div>
+      <div class="metric-row"><span class="label">Faces</span><span class="value" id="mFaces">—</span></div>
+      <div class="badge" id="mImprovement">—</div>
+    </div>
+
+    <div class="examples-label">Console</div>
+    <div class="log" id="log">
+      <div class="line info">Ready. Upload a mesh file to begin.</div>
+    </div>
+  </div>
+
+  <!-- 3D VIEWER -->
+  <div class="viewer-wrap">
+    <canvas id="viewer"></canvas>
+    <div class="empty" id="emptyState">
+      <div class="icon">🔲</div>
+      <div class="txt">No object loaded — upload a file to see its tight bounding box</div>
+    </div>
+    <div class="file-tag" id="fileTag"></div>
+    <div class="legend" id="legend">
+      <div class="legend-item"><div class="swatch" style="background:#9aa3b5"></div> Mesh</div>
+      <div class="legend-item"><div class="swatch" style="background:#00d4ff"></div> Oriented Bounding Box</div>
+      <div class="legend-item"><div class="swatch" style="background:#ff5c5c"></div> Center</div>
+    </div>
+    <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+  // ---------- Console log helper (defined early so it's available everywhere) ----------
+  const logEl = document.getElementById('log');
+  function log(msg, type = '') {
+    const line = document.createElement('div');
+    line.className = 'line' + (type ? ' ' + type : '');
+    const t = new Date().toLocaleTimeString();
+    line.textContent = `[${t}] ${msg}`;
+    logEl.appendChild(line);
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  window.addEventListener('error', (e) => {
+    log('Script error: ' + e.message, 'err');
+  });
+
+  // ---------- Upload / example button wiring (attached FIRST, independent of the 3D viewer) ----------
+  function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    processResponse(fetch('/api/upload', { method: 'POST', body: formData }), file.name);
+  }
+
+  function loadExample(filename) {
+    processResponse(fetch(`/api/example/${filename}`), filename);
+  }
+
+  const uploadZone = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+  uploadZone.addEventListener('click', () => fileInput.click());
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragging'); });
+  uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragging'));
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragging');
+    if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files.length) uploadFile(e.target.files[0]);
+  });
+  document.querySelectorAll('.ex-btn').forEach(btn => {
+    btn.addEventListener('click', () => loadExample(btn.dataset.file));
+  });
+
+  // ---------- Minimal vanilla orbit controls (no external dependency) ----------
+  function createOrbitControls(camera, domElement, target) {
+    const state = { dragging: false, panning: false, lastX: 0, lastY: 0 };
+    const spherical = { radius: 100, theta: Math.PI / 4, phi: Math.PI / 3 };
+
+    function updateCameraFromSpherical() {
+      const sinPhi = Math.sin(spherical.phi);
+      camera.position.x = target.x + spherical.radius * sinPhi * Math.sin(spherical.theta);
+      camera.position.y = target.y + spherical.radius * Math.cos(spherical.phi);
+      camera.position.z = target.z + spherical.radius * sinPhi * Math.cos(spherical.theta);
+      camera.lookAt(target);
+    }
+
+    domElement.addEventListener('mousedown', (e) => {
+      if (e.button === 2) state.panning = true; else state.dragging = true;
+      state.lastX = e.clientX; state.lastY = e.clientY;
+    });
+    window.addEventListener('mouseup', () => { state.dragging = false; state.panning = false; });
+    window.addEventListener('mousemove', (e) => {
+      const dx = e.clientX - state.lastX;
+      const dy = e.clientY - state.lastY;
+      state.lastX = e.clientX; state.lastY = e.clientY;
+      if (state.dragging) {
+        spherical.theta -= dx * 0.008;
+        spherical.phi -= dy * 0.008;
+        spherical.phi = Math.max(0.05, Math.min(Math.PI - 0.05, spherical.phi));
+        updateCameraFromSpherical();
+      } else if (state.panning) {
+        const panSpeed = spherical.radius * 0.0015;
+        const right = new THREE.Vector3();
+        camera.getWorldDirection(right);
+        right.cross(camera.up).normalize();
+        target.addScaledVector(right, -dx * panSpeed);
+        target.y += dy * panSpeed;
+        updateCameraFromSpherical();
+      }
+    });
+    domElement.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      spherical.radius *= (1 + e.deltaY * 0.001);
+      spherical.radius = Math.max(2, Math.min(5000, spherical.radius));
+      updateCameraFromSpherical();
+    }, { passive: false });
+    domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    updateCameraFromSpherical();
+    return {
+      setTarget(newTarget, distance) {
+        target.copy(newTarget);
+        spherical.radius = distance;
+        updateCameraFromSpherical();
+      },
+      update() {},
+    };
+  }
+
+  // ---------- Three.js scene setup ----------
+  const canvas = document.getElementById('viewer');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 10000);
+  const orbitTarget = new THREE.Vector3(0, 0, 0);
+  const controls = createOrbitControls(camera, renderer.domElement, orbitTarget);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  dirLight.position.set(80, 120, 60);
+  scene.add(dirLight);
+  const dirLight2 = new THREE.DirectionalLight(0x88bbff, 0.3);
+  dirLight2.position.set(-80, -40, -60);
+  scene.add(dirLight2);
+
+  const grid = new THREE.GridHelper(200, 20, 0x1c2436, 0x151b28);
+  scene.add(grid);
+
+  let meshObject = null;
+  let obbObject = null;
+  let centerObject = null;
+
+  function resizeRenderer() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resizeRenderer);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  function clearScene() {
+    [meshObject, obbObject, centerObject].forEach(obj => {
+      if (obj) scene.remove(obj);
+    });
+    meshObject = obbObject = centerObject = null;
+  }
+
+  function frameCamera(vertices) {
+    const box = new THREE.Box3();
+    const v = new THREE.Vector3();
+    for (let i = 0; i < vertices.length; i += 3) {
+      v.set(vertices[i], vertices[i + 1], vertices[i + 2]);
+      box.expandByPoint(v);
+    }
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const dist = maxDim * 1.8 + 5;
+    controls.setTarget(center, dist * 1.5);
+  }
+
+  function buildMesh(vertsFlat, facesFlat) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertsFlat, 3));
+    geometry.setIndex(facesFlat);
+    geometry.computeVertexNormals();
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x9aa3b5,
+      metalness: 0.15,
+      roughness: 0.7,
+      flatShading: false,
+      side: THREE.DoubleSide,
+    });
+    return new THREE.Mesh(geometry, material);
+  }
+
+  function buildOBBWireframe(corners) {
+    // corners: 8 points in the standard box-corner order used by app.py
+    const edges = [
+      [0,1],[1,2],[2,3],[3,0],   // bottom
+      [4,5],[5,6],[6,7],[7,4],   // top
+      [0,4],[1,5],[2,6],[3,7],   // verticals
+    ];
+    const positions = [];
+    edges.forEach(([a, b]) => {
+      positions.push(...corners[a], ...corners[b]);
+    });
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const material = new THREE.LineBasicMaterial({ color: 0x00d4ff, linewidth: 2 });
+    return new THREE.LineSegments(geometry, material);
+  }
+
+  function buildCenterMarker(center, scale) {
+    const geometry = new THREE.SphereGeometry(Math.max(scale * 0.02, 0.3), 16, 16);
+    const material = new THREE.MeshBasicMaterial({ color: 0xff5c5c });
+    const sphere = new THREE.Mesh(geometry, material);
+    sphere.position.set(center[0], center[1], center[2]);
+    return sphere;
+  }
+
+  function renderResult(data) {
+    clearScene();
+
+    meshObject = buildMesh(data.mesh.vertices, data.mesh.faces);
+    scene.add(meshObject);
+
+    obbObject = buildOBBWireframe(data.obb.corners);
+    scene.add(obbObject);
+
+    const maxDim = Math.max(data.obb.dimensions.length, data.obb.dimensions.width, data.obb.dimensions.height);
+    centerObject = buildCenterMarker(data.obb.center, maxDim);
+    scene.add(centerObject);
+
+    frameCamera(data.mesh.vertices);
+
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('legend').classList.add('show');
+    document.getElementById('fileTag').classList.add('show');
+    document.getElementById('fileTag').textContent = data.filename;
+    document.getElementById('metrics').style.display = 'flex';
+
+    document.getElementById('mVolume').textContent = data.obb.volume.toFixed(2) + ' u³';
+    document.getElementById('mLength').textContent = data.obb.dimensions.length.toFixed(2);
+    document.getElementById('mWidth').textContent = data.obb.dimensions.width.toFixed(2);
+    document.getElementById('mHeight').textContent = data.obb.dimensions.height.toFixed(2);
+    document.getElementById('mVerts').textContent = data.vertex_count.toLocaleString();
+    document.getElementById('mFaces').textContent = data.face_count.toLocaleString();
+    document.getElementById('mImprovement').textContent =
+      '✓ ' + data.improvement.toFixed(1) + '% tighter than an axis-aligned box';
+  }
+
+  // ---------- Upload / processing pipeline ----------
+  const overlay = document.getElementById('loadingOverlay');
+
+  async function processResponse(promise, label) {
+    overlay.classList.add('show');
+    log(`Reading ${label} ...`, 'info');
+    try {
+      const res = await promise;
+      const data = await res.json();
+      if (data.error) {
+        log('Error: ' + data.error, 'err');
+        return;
+      }
+      log(`Loaded ${data.vertex_count.toLocaleString()} vertices, ${data.face_count.toLocaleString()} faces`);
+      log(`Computing Oriented Bounding Box (PCA) ...`);
+      log(`OBB volume: ${data.obb.volume.toFixed(2)} u³  |  ${data.obb.dimensions.length.toFixed(2)} × ${data.obb.dimensions.width.toFixed(2)} × ${data.obb.dimensions.height.toFixed(2)}`);
+      renderResult(data);
+    } catch (e) {
+      log('Request failed: ' + e.message, 'err');
+    } finally {
+      overlay.classList.remove('show');
+    }
+  }
+
+  // Kick things off
+  resizeRenderer();
+  animate();
+  log('Viewer ready. Upload a mesh file or click a sample object.', 'info');
+</script>
+</body>
+</html>
