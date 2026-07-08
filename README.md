@@ -58,14 +58,6 @@ Open your browser to **http://127.0.0.1:5000**
 
 ---
 
-## Recording your submission
-
-1. Start screen recording (Windows: `Win+G` · macOS: QuickTime → New Screen Recording).
-2. Upload/select **Cube**, rotate the 3D view to show the box fits tightly, note the volume/dimensions.
-3. Repeat for **Cylinder** and **Teapot**.
-4. Stop recording, upload to Google Drive, and set sharing to "Anyone with the link can view."
-
----
 
 ## File structure
 
